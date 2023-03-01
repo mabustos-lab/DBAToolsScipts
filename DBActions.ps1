@@ -118,7 +118,7 @@ function Test-SqlConnection {
         $sqlConnection.Open()        
     } catch {
         $message = $_
-        Write-Warning "Falló la prueba: $message"
+        Write-Warning "FallÃ³ la prueba: $message"
         $result= $false
     } finally {
         ## Close the connection when we're done
@@ -126,7 +126,7 @@ function Test-SqlConnection {
     }
     return $result
 }
-function UpdateDataBase {
+function Update-DataBase {
     [OutputType([bool])]
     Param(
         #Action
@@ -136,8 +136,8 @@ function UpdateDataBase {
         )
     
     Write-Host "Actualizando base de datos $targetDBname..."
-    #%SQLPCK% /a:Publish /sf:"%DBFILE%" /Profile:".\SiomaxDB.publish.xml" /drp:".\SiomaxDB.Report.xml"
-    & "$sqlpackage" /a:"Publish" /sf:"$fileDapac"  /Profile:"$PSScriptRoot\SiomaxDB.publish.xml" /drp:"$targetDBname.$timeStamp.xml"
+    #%SQLPCK% /a:Publish /sf:"%DBFILE%" /Profile:".\$targetDBname.publish.xml" /drp:".\SiomaxDB.Report.xml"
+    & "$sqlpackage" /a:"Publish" /sf:"$fileDapac"  /Profile:"$PSScriptRoot\$targetDBname.publish.xml" /drp:"$targetDBname.$timeStamp.xml"
     if ( $LASTEXITCODE -ne 0 ) {
         Write-Host "No se pudo actualizar la base de datos $targetDBname..."
         return $false
@@ -145,14 +145,14 @@ function UpdateDataBase {
     else { return $true }
     
 }
-function UpdateSiomaxDBArtifact{
-    $latest = Get-ChildItem $PSScriptRoot -Attributes !Directory *SiomaxDB*.zip | Sort-Object -Descending -Property LastWriteTime | select -First 1
+function UpdateDBArtifact{
+    $latest = Get-ChildItem $PSScriptRoot -Attributes !Directory *$targetDBname*.zip | Sort-Object -Descending -Property LastWriteTime | select -First 1
     if ($latest.count -eq 1) {
-         Write-Host "Leyendo paquete de actualización de SiomaxDB..."
+         Write-Host "Leyendo paquete de actualizaciÃ³n de $targetDBname..."
          $tmpFolder=New-TemporaryDirectory
          Expand-Archive -Path $latest.FullName -DestinationPath $tmpFolder -Force -ErrorAction SilentlyContinue
          
-         $result=UpdateDataBase -fileDapac "$tmpFolder\SiomaxDB.dacpac"
+         $result=Update-DataBase -fileDapac "$tmpFolder\$targetDBname.dacpac"
          Remove-Item -LiteralPath $tmpFolder -Force -Recurse
          if ($result -eq $true){
             $BkpFolder=(Join-Path $PSScriptRoot "UpdatesBackup")
@@ -161,24 +161,24 @@ function UpdateSiomaxDBArtifact{
             if(-not ([System.IO.Directory]::Exists($BkpFolder))) {
                 $null = New-Item -ItemType Directory -Path $BkpFolder}
             
-            Move-Item –Path $latest.FullName -Destination "$BkpFolder\$fileName$timeStamp.old"
+            Move-Item â€“Path $latest.FullName -Destination "$BkpFolder\$fileName$timeStamp.old"
          }
     }
     else {
-        Write-Host "No se encontró ningin paquete de actualización de SiomaxDB..."
+        Write-Host "No se encontrÃ³ ningin paquete de actualizaciÃ³n de $targetDBname..."
     }
 }
-function RestoreDataBase {
+function Restore-DataBase {
    
     Write-Host "Restaurando base de datos $targetDBname..."
     $RestoreContinue=$true
      if ([string]::IsNullOrEmpty($bacpacFile)) {
         $latest = Get-ChildItem $PSScriptRoot -Attributes !Directory *.bacpac | Sort-Object -Descending -Property LastWriteTime | select -First 1
         $bacpacFile=$latest.FullName
-        if (-not [string]::IsNullOrEmpty($bacpacFile)) { Write-Host "Se usará el archivo mas reciente encontrado: $bacpacFile" }
+        if (-not [string]::IsNullOrEmpty($bacpacFile)) { Write-Host "Se usarÃ¡ el archivo mas reciente encontrado: $bacpacFile" }
 
          if ([string]::IsNullOrEmpty($bacpacFile)) {
-            Write-Host "No se estableció un archivo bacpac para importar la base de datos: $targetDBname"
+            Write-Host "No se estableciÃ³ un archivo bacpac para importar la base de datos: $targetDBname"
             $RestoreContinue=$false
             }
      }
@@ -200,7 +200,7 @@ function RestoreDataBase {
     }
     if ($RestoreContinue -eq $false){ Write-Host "No fue restaurada la base de datos $targetDBname..."}
 }
-function BackupDataBase {
+function Backup-DataBase {
 
     Write-Host "Exportando la base de datos $targetDBname..."
     
@@ -247,7 +247,7 @@ Function Create-SQLToken() {
     $strPwd = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($pass))
 
     if ([string]::IsNullOrWhiteSpace($serverName)) { $serverName = 'ZEROCOOL\SQLEXPRESS' }
-    if ([string]::IsNullOrWhiteSpace($DBName)) { $DBName = 'SiomaxDB' }
+    if ([string]::IsNullOrWhiteSpace($DBName)) { $DBName = "$targetDBname" }
 
     $json = @{ 'Server'= "$serverName"
            'Database' = "$DBName"
@@ -283,12 +283,12 @@ Get-NetIPAddress
 
 $timeStamp=$(((get-date).ToUniversalTime()).ToString("yyyyMMddTHHmmss"))
 
-#UpdateSiomaxDBArtifact
+#UpdateDBArtifact
 
 CheckExistSqlpackage
 
 if ([string]::IsNullOrEmpty($action)) {
-    $result=InteractiveOptions -Title 'Menu' -Question '¿Que deseas hacer con la base de datos?'
+    $result=InteractiveOptions -Title 'Menu' -Question 'Â¿Que deseas hacer con la base de datos?'
     switch ($result)
         {
             0 { $action="update"}
@@ -300,12 +300,12 @@ if ([string]::IsNullOrEmpty($action)) {
 
 switch ($action)
 {
-    "update" {UpdateDataBase;Break}
-    "restore" {RestoreDataBase;Break}
-    "backup" {BackupDataBase;Break}
-    "token" {BackupDataBase;Break}
+    "update" {Update-DataBase;Break}
+    "restore" {Restore-DataBase;Break}
+    "backup" {Backup-DataBase;Break}
+    "token" {Create-SQLToken;Break}
     Default {
-        Write-Host "comando de acción no válido '$action'"
+        Write-Host "comando de acciÃ³n no vÃ¡lida '$action'"
     }
 }
 Stop-Transcript
